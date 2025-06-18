@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: ./main.sh /path/to/your/install
+# Usage: ./main.sh /path/to/your/install dbname
 
 set -e
 
@@ -8,6 +8,7 @@ RED="\e[31m"
 YELLOW="\e[33m"
 RESET="\e[0m"
 INSTALL_PATH="/var/www/jexactyl"
+DB_NAME="jexactyl"
 
 success() {
     echo -e "${GREEN}$1${RESET}"
@@ -33,9 +34,8 @@ require_sudo() {
 parse_arguments() {
     if [[ -n "$1" ]]; then
         INSTALL_PATH="$1"
-        warn "[path] using custom install path: $INSTALL_PATH"
-    else
-        warn "[path] using default install path: $INSTALL_PATH"
+    elif [[ -n "$2" ]]; then
+        DB_NAME="$2"
     fi
     cd "$INSTALL_PATH" || { echo_danger "[path] failed to enter install path: $INSTALL_PATH"; exit 1; }
 }
@@ -79,7 +79,7 @@ backup_app() {
     success "[backup] created"
 
     warn "[backup] creating database backup"
-    mysqldump jexactyl > $BACKUP_DIR/jexactyl.sql
+    mysqldump $DB_NAME > $BACKUP_DIR/jexactyl.sql
 
     success "[backup] database backup created"
 }
@@ -157,13 +157,13 @@ migrate_database() {
     success "[database] connected successfully, attempting edits"
 
     warn "[database] (1 of 5): drop old tickets table"
-    # mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "DROP TABLE tickets; DROP TABLE ticket_messages;"
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "DROP TABLE tickets; DROP TABLE ticket_messages;" || true
 
     warn "[database] (2 of 5): drop old theme table"
-    # mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "DROP TABLE theme;"
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "DROP TABLE theme;" || true
 
     warn "[database] (3 of 5): remove old node deployable column"
-    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "ALTER TABLE nodes DROP COLUMN deployable;"
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "ALTER TABLE nodes DROP COLUMN deployable;" || true
 
     warn "[database] attempting database migration"
     php artisan migrate --seed
